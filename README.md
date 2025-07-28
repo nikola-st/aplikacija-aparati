@@ -1,0 +1,31 @@
+IZVEŠTAJ APARATA
+
+Da bi aplikacija ispravno radila, neophodno je da svi fajlovi budu u istom folderu!
+
+Aplikacija se pokreće dvoklikom na "index" .html fajl! 
+Moguće je dodavanje ikonice na Desktop: desni klik na fajl > Send to > Desktop (create shortcut)
+
+Učitava se lokalno na računaru, ne koristi Internet! 
+Za rad, kao interfejs, koristi default Internet browser (npr. Google Chrome). Local storage Internet browser-a se koristi za čuvanje podataka!
+
+----------------------------------------------------------------------------
+PAŽNJA!!! Klikom na dugme OČISTI MEMORIJU brišu se svi zapamćeni podaci!!!
+----------------------------------------------------------------------------
+
+Prilikom startovanja, učitavaju se poslednje unete vrednosti
+
+************************************************************
+Aplikacija: 
+
+- Omogućava unos u polja: ULAZ, IZLAZ (aparati EGT1 i EGT2), STANJE (aparati IMP3, IMP4 i IMP5) i PRETHODNO STANJE
+- Računa STANJE (ULAZ - IZLAZ) za aparate EGT1 i EGT2
+- Sabira STANJE za sve aparate kao NOVO STANJE
+- Računa UKUPNO kao NOVO - PRETHODNO
+
+Svakog ponedeljka PRETHODNO STANJE se resetuje na 0 (Reset se zasniva na sistemskom datumu, a ne na izboru dana iz padajućeg menija!)
+Pamti MESEČNO STANJE (sabira UKUPNO)
+Svakog prvog u mesecu MESEČNO STANJE se resetuje na 0 (Reset se zasniva na sistemskom datumu)
+
+*************************************************************
+
+Autor: Nikola Stojićević | stojicevic.n@gmail.com
