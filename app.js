@@ -1,329 +1,275 @@
-const aparati = ["EGT1", "EGT2", "IMP3", "IMP4", "IMP5"];
-let podaci = JSON.parse(localStorage.getItem("dailyReports")) || [];
+const aparati = [
+  { id: "egt1", imaUlazIzlaz: true },
+  { id: "egt2", imaUlazIzlaz: true },
+  { id: "imp3", imaUlazIzlaz: false },
+  { id: "imp4", imaUlazIzlaz: false },
+  { id: "imp5", imaUlazIzlaz: false },
+];
 
-// Postavi današnji datum i učitaj podatke pri učitavanju stranice
-window.onload = () => {
-  const danas = new Date().toISOString().split("T")[0];
-  const reportDate = document.getElementById("reportDate");
-  if (!reportDate.value) reportDate.value = danas;
+const prethodnoStanjeInput = document.getElementById("prethodnoStanje");
+const novoStanjeSpan = document.getElementById("novoStanje");
+const ukupnoSpan = document.getElementById("ukupno");
+const mesecnoStanjeSpan = document.getElementById("mesecnoStanje");
+const radnikInput = document.getElementById("radnik");
+const lokalInput = document.getElementById("lokal");
+const datumInput = document.getElementById("datum");
+const smenaInput = document.getElementById("smena");
+const resetujBtn = document.getElementById("resetujBtn");
+const aparatiTabela = document.getElementById("aparatiTabela");
 
-  proveriResetPon(); // Resetuje prethodno stanje ako je ponedeljak
 
-  ucitajTabelu();
-  prikaziStanja();
-  resetujMesecnoStanje(); // Resetuje mesečno stanje ako je prvi dan u mesecu
-};
-
-// Učitaj tabelu sa prethodnim izlazima kao ulazi i praznim izlazima
-function ucitajTabelu() {
-  const tbody = document.getElementById("machineTableBody");
-  tbody.innerHTML = "";
-
-  aparati.forEach((aparat) => {
-    const poslednjiIzlaz = dohvatiPoslednjiIzlaz(aparat);
-    const red = document.createElement("tr");
-
-    red.innerHTML = `
-      <td>${aparat}</td>
-      <td><input type="number" id="entry-${aparat}" class="form-control" value="${poslednjiIzlaz}" /></td>
-      <td><input type="number" id="exit-${aparat}" class="form-control" /></td>
-      <td id="state-${aparat}" class="text-center">-</td>
-    `;
-
-    tbody.appendChild(red);
-  });
+function formatBroj(vrednost) {
+  return Number(vrednost || 0).toLocaleString("sr-RS");
 }
 
-// Dohvati poslednji izlaz za dati aparat iz istorije
-function dohvatiPoslednjiIzlaz(aparat) {
-  for (let i = podaci.length - 1; i >= 0; i--) {
-    const entry = podaci[i].entries.find((e) => e.machine === aparat);
-    if (entry) return entry.exit || 0;
-  }
-  return 0;
-}
-
-// Prikaži prethodno stanje na ekranu (sabiraj ulaze iz poslednjeg izveštaja)
-function prikaziStanja() {
-  if (podaci.length === 0) {
-    document.getElementById("prethodnoStanje").textContent = "0.00";
-    document.getElementById("novoStanje").textContent = "0.00";
-    document.getElementById("totalRazlika").textContent = "0.00";
-    document.getElementById("mesecnoStanje").textContent = "0.00";
-    return;
-  }
-
-  // Uzmi poslednji izveštaj
-  const poslednji = podaci[podaci.length - 1];
-  document.getElementById("prethodnoStanje").textContent =
-    poslednji.previous.toFixed(2);
-  document.getElementById("novoStanje").textContent =
-    poslednji.current.toFixed(2);
-  document.getElementById("totalRazlika").textContent =
-    poslednji.total.toFixed(2);
-
-  // Izračunaj mesečno stanje
-  const poslednjiPonedeljak = dohvatiPoslednjiPonedeljak();
-  const mesecniIzvestaji = podaci.filter(
-    (r) => new Date(r.date) >= poslednjiPonedeljak
-  );
-  const mesecno = mesecniIzvestaji.reduce((sum, r) => sum + r.total, 0);
-  document.getElementById("mesecnoStanje").textContent = mesecno.toFixed(2);
-}
-
-// Izračunaj stanje, sačuvaj izveštaj i prikaži rezultate
-function izracunaj() {
-  const date = document.getElementById("reportDate").value;
-  const shift = document.getElementById("shift").value.trim();
-  const worker = document.getElementById("worker").value.trim();
-
-  if (!date || !shift || !worker) {
-    alert("Molimo popunite datum, smenu i ime radnika.");
-    return;
-  }
-
-  let prethodno = 0;
-  let novo = 0;
-
-  const izvestaj = {
-    date,
-    shift,
-    worker,
-    entries: [],
-    previous: 0,
-    current: 0,
-    total: 0,
+function sacuvajPodatke() {
+  // Ne pamtimo smenu
+  const podaci = {
+    radnik: radnikInput.value,
+    lokal: lokalInput.value,
+    datum: datumInput.value,
+    prethodnoStanje: prethodnoStanjeInput.value !== "" ? Number(prethodnoStanjeInput.value) : (JSON.parse(localStorage.getItem("podaci"))?.prethodnoStanje || 0),
+    aparati: {},
+    mesecnoStanje: Number(localStorage.getItem("mesecnoStanje")) || 0,
   };
 
-  aparati.forEach((aparat) => {
-    const ulaz =
-      parseFloat(document.getElementById(`entry-${aparat}`).value) || 0;
-    const izlaz =
-      parseFloat(document.getElementById(`exit-${aparat}`).value) || 0;
-    const stanje = ulaz - izlaz;
-
-    // Prikaz stanja u tabeli
-    document.getElementById(`state-${aparat}`).textContent = stanje.toFixed(2);
-
-    prethodno += ulaz;
-    novo += izlaz;
-
-    izvestaj.entries.push({
-      machine: aparat,
-      entry: ulaz,
-      exit: izlaz,
-      total: stanje,
-    });
+  aparati.forEach(({ id }) => {
+    const ulaz = document.getElementById(`${id}_ulaz`);
+    const izlaz = document.getElementById(`${id}_izlaz`);
+    const stanje = document.getElementById(`${id}_stanje`);
+    podaci.aparati[id] = {
+      ulaz: Number(ulaz?.value) || 0,
+      izlaz: Number(izlaz?.value) || 0,
+      stanje: Number(stanje?.value) || 0,
+    };
   });
-
-  izvestaj.previous = prethodno;
-  izvestaj.current = novo;
-  izvestaj.total = novo - prethodno;
-
-  // Prikaži stanja na ekranu
-  document.getElementById("prethodnoStanje").textContent = prethodno.toFixed(2);
-  document.getElementById("novoStanje").textContent = novo.toFixed(2);
-  document.getElementById("totalRazlika").textContent = (
-    novo - prethodno
-  ).toFixed(2);
-
-  // Izračunaj mesečno stanje od poslednjeg ponedeljka
-  const poslednjiPonedeljak = dohvatiPoslednjiPonedeljak();
-  const mesecniIzvestaji = podaci.filter(
-    (r) => new Date(r.date) >= poslednjiPonedeljak
-  );
-  const mesecno =
-    mesecniIzvestaji.reduce((sum, r) => sum + r.total, 0) + izvestaj.total;
-  document.getElementById("mesecnoStanje").textContent = mesecno.toFixed(2);
-
-  // Sačuvaj izveštaj
-  podaci.push(izvestaj);
-  localStorage.setItem("dailyReports", JSON.stringify(podaci));
-
-  // Pripremi za štampu
-  pripremiZaStampu(izvestaj);
-
-  // Očisti ulazna polja za izlaz (izlaz ostaje prazan za novi unos)
-  aparati.forEach((aparat) => {
-    document.getElementById(`exit-${aparat}`).value = "";
-  });
+  
+  localStorage.setItem("podaci", JSON.stringify(podaci));
 }
 
-// Pripremi podatke za štampu
-function pripremiZaStampu(izvestaj) {
-  document.getElementById("printDate").textContent = new Date().toLocaleDateString();
-  document.getElementById("reportDatePrint").textContent = izvestaj.date;
-  document.getElementById("shiftPrint").textContent = izvestaj.shift;
-  document.getElementById("workerPrint").textContent = izvestaj.worker;
-  document.getElementById("prethodnoStanjePrint").textContent = izvestaj.previous.toFixed(2);
-  document.getElementById("novoStanjePrint").textContent = izvestaj.current.toFixed(2);
-  document.getElementById("totalRazlikaPrint").textContent = izvestaj.total.toFixed(2);
+function ucitajPodatke() {
+  const podaci = JSON.parse(localStorage.getItem("podaci")) || {};
+  //radnikInput.value = podaci.radnik || "";
+  lokalInput.value = podaci.lokal || "";
 
-  popuniPrintTabelu(izvestaj);
-}
+  prethodnoStanjeInput.value = podaci.prethodnoStanje !== undefined ? podaci.prethodnoStanje : "";
 
-// Popuni tabelu u print sekciji
-function popuniPrintTabelu(izvestaj) {
-  const tbody = document.getElementById("printTableBody");
-  tbody.innerHTML = "";
-
-  izvestaj.entries.forEach((e) => {
-    const red = document.createElement("tr");
-    red.innerHTML = `
-      <td>${e.machine}</td>
-      <td>${e.entry.toFixed(2)}</td>
-      <td>${e.exit.toFixed(2)}</td>
-      <td>${e.total.toFixed(2)}</td>
-    `;
-    tbody.appendChild(red);
+  aparati.forEach(({ id }) => {
+    const ulaz = document.getElementById(`${id}_ulaz`);
+    const izlaz = document.getElementById(`${id}_izlaz`);
+    const stanje = document.getElementById(`${id}_stanje`);
+    const p = podaci.aparati?.[id] || {};
+    if (ulaz) ulaz.value = p.ulaz || "";
+    if (izlaz) izlaz.value = p.izlaz || "";
+    if (stanje) stanje.value = p.stanje || "";
   });
+
+  const mesecnoStanje = Number(podaci.mesecnoStanje || 0);
+  mesecnoStanjeSpan.textContent = formatBroj(mesecnoStanje);
 }
 
-// Dobij poslednji ponedeljak u odnosu na danas
-function dohvatiPoslednjiPonedeljak() {
+function resetujPrethodnoStanjeAkoJePonedeljak() {
   const danas = new Date();
-  const dan = danas.getDay();
-  const razlika = dan === 0 ? 6 : dan - 1; // Ponedeljak je 1, nedelja 0
-  danas.setDate(danas.getDate() - razlika);
-  danas.setHours(0, 0, 0, 0);
-  return danas;
-}
-
-// Resetuj prethodno stanje na 0 ako je ponedeljak i učitaj prazan prethodni unos
-function proveriResetPon() {
-  const danas = new Date();
-  if (danas.getDay() === 1) {
-    // ponedeljak
-    // Resetuj prethodno stanje na 0 tako što brišeš stare izveštaje
-    podaci = podaci.filter(
-      (r) => new Date(r.date) >= dohvatiPoslednjiPonedeljak()
-    ); // izbriši starije od ponedeljka
-    localStorage.setItem("dailyReports", JSON.stringify(podaci));
-    
-    // Ažuriraj prikaz stanja nakon resetovanja
-    document.getElementById("prethodnoStanje").textContent = "0.00";
-    document.getElementById("novoStanje").textContent = "0.00";
-    document.getElementById("totalRazlika").textContent = "0.00";
-
-    // Učitaj tabelu ponovo, sa ulazom 0 jer je reset
-    ucitajTabelu();
+  if (danas.getDay() === 1) { // ponedeljak je 1
+    // Resetuj samo ako prethodno stanje nije postavljeno ili je 0
+    if (!prethodnoStanjeInput.value || Number(prethodnoStanjeInput.value) === 0) {
+      prethodnoStanjeInput.value = 0;
+      sacuvajPodatke();
+    }
   }
 }
 
-// Štampaj izveštaj
+let poslednjiUkupno = 0; // Za pamćenje poslednjeg ukupnog da ne duplira mesečno stanje
+
+function izracunajStanje() {
+  let novoStanje = 0;
+
+  aparati.forEach(({ id, imaUlazIzlaz }) => {
+    const ulaz = document.getElementById(`${id}_ulaz`);
+    const izlaz = document.getElementById(`${id}_izlaz`);
+    const stanje = document.getElementById(`${id}_stanje`);
+
+    if (imaUlazIzlaz) {
+      const u = Number(ulaz.value) || 0;
+      const i = Number(izlaz.value) || 0;
+      const rez = u - i;
+      stanje.value = rez;
+      novoStanje += rez;
+    } else {
+      const s = Number(stanje.value) || 0;
+      novoStanje += s;
+    }
+  });
+
+  const prethodnoStanje = Number(prethodnoStanjeInput.value) || 0;
+  const ukupno = novoStanje - prethodnoStanje;
+
+  novoStanjeSpan.textContent = formatBroj(novoStanje);
+  ukupnoSpan.textContent = formatBroj(ukupno);
+
+  // Mesečno stanje se ažurira samo ako se ukupno promeni
+  let mesecnoStanje = Number(localStorage.getItem("mesecnoStanje")) || 0;
+  if (ukupno !== poslednjiUkupno) {
+    mesecnoStanje += ukupno - poslednjiUkupno;
+    poslednjiUkupno = ukupno;
+    mesecnoStanjeSpan.textContent = formatBroj(mesecnoStanje);
+    localStorage.setItem("mesecnoStanje", mesecnoStanje);
+  }
+
+  sacuvajPodatke();
+}
+
+function napraviRedoveAparata() {
+  aparatiTabela.innerHTML = ""; // obriši ako već nešto ima
+
+  aparati.forEach(({ id, imaUlazIzlaz }) => {
+    const tr = document.createElement("tr");
+
+    // prvi td sa labelom
+    const tdNaziv = document.createElement("td");
+    const label = document.createElement("label");
+    label.htmlFor = imaUlazIzlaz ? `${id}_ulaz` : `${id}_stanje`;
+    label.textContent = id.toUpperCase();
+    tdNaziv.appendChild(label);
+
+    // td za ulaz
+    const tdUlaz = document.createElement("td");
+    const ulazInput = document.createElement("input");
+    ulazInput.type = "number";
+    ulazInput.className = "form-control";
+    ulazInput.id = `${id}_ulaz`;
+    ulazInput.placeholder = imaUlazIzlaz
+      ? `Unesite ulaz za ${id.toUpperCase()}`
+      : `Ulaz ${id.toUpperCase()}`;
+    ulazInput.title = `Ulaz za ${id.toUpperCase()}`;
+    ulazInput.setAttribute("aria-label", `Ulaz za ${id.toUpperCase()}`);
+    if (!imaUlazIzlaz) ulazInput.disabled = true;
+    tdUlaz.appendChild(ulazInput);
+
+    // td za izlaz
+    const tdIzlaz = document.createElement("td");
+    const izlazInput = document.createElement("input");
+    izlazInput.type = "number";
+    izlazInput.className = "form-control";
+    izlazInput.id = `${id}_izlaz`;
+    izlazInput.placeholder = imaUlazIzlaz
+      ? `Unesite izlaz za ${id.toUpperCase()}`
+      : `Izlaz ${id.toUpperCase()}`;
+    izlazInput.title = `Izlaz za ${id.toUpperCase()}`;
+    izlazInput.setAttribute("aria-label", `Izlaz za ${id.toUpperCase()}`);
+    if (!imaUlazIzlaz) izlazInput.disabled = true;
+    tdIzlaz.appendChild(izlazInput);
+
+    // td za stanje
+    const tdStanje = document.createElement("td");
+    const stanjeInput = document.createElement("input");
+    stanjeInput.type = "number";
+    stanjeInput.className = "form-control";
+    stanjeInput.id = `${id}_stanje`;
+    stanjeInput.placeholder = imaUlazIzlaz
+      ? `Stanje ${id.toUpperCase()}`
+      : `Unesite stanje za ${id.toUpperCase()}`;
+    stanjeInput.title = `Stanje ${id.toUpperCase()}`;
+    stanjeInput.setAttribute("aria-label", `Stanje ${id.toUpperCase()}`);
+    if (imaUlazIzlaz) stanjeInput.disabled = true;
+    tdStanje.appendChild(stanjeInput);
+
+    tr.appendChild(tdNaziv);
+    tr.appendChild(tdUlaz);
+    tr.appendChild(tdIzlaz);
+    tr.appendChild(tdStanje);
+
+    aparatiTabela.appendChild(tr);
+  });
+}
+
 function stampaj() {
+  function formatBroj(vrednost) {
+    const num = Number(vrednost);
+    return isNaN(num) ? "-" : num.toLocaleString("sr-RS");
+  }
+
+  const datum = datumInput.value || "-";
+  const radnik = radnikInput.value || "-";
+  const lokal = lokalInput.value || "-";
+  const smena = smenaInput.value || "-";
+  const prethodno = prethodnoStanjeInput.value || "-";
+  const novo = novoStanjeSpan.textContent.trim() || "-";
+  const ukupno = ukupnoSpan.textContent.trim() || "-";
+  const mesecno = mesecnoStanjeSpan.textContent.trim() || "-";
+
+  document.getElementById("printDatum").textContent = new Date().toLocaleDateString("sr-RS");
+  document.getElementById("datumPrint").textContent = datum;
+  document.getElementById("radnikPrint").textContent = radnik;
+  document.getElementById("lokalPrint").textContent = lokal;
+  document.getElementById("smenaPrint").textContent = smena;
+  document.getElementById("prethodnoStanjePrint").textContent = formatBroj(prethodno);
+  document.getElementById("novoStanjePrint").textContent = novo;
+  document.getElementById("ukupnoPrint").textContent = formatBroj(ukupno);
+  document.getElementById("mesecnoStanjePrint").textContent = formatBroj(mesecno);
+
+  const tbody = document.getElementById("printTabela");
+  tbody.innerHTML = "";
+  aparati.forEach(({ id }) => {
+    const ulaz = formatBroj(document.getElementById(id + "_ulaz")?.value);
+    const izlaz = formatBroj(document.getElementById(id + "_izlaz")?.value);
+    const stanje = formatBroj(document.getElementById(id + "_stanje")?.value);
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${id.toUpperCase()}</td><td>${ulaz}</td><td>${izlaz}</td><td>${stanje}</td>`;
+    tbody.appendChild(tr);
+  });
+
   window.print();
 }
 
-// Pomoćna funkcija za dodavanje bordera i automatsko podešavanje širine kolona
-function formatirajSheet(ws, data) {
-  const colWidths = [];
-
-  for (let R = 0; R < data.length; ++R) {
-    for (let C = 0; C < data[R].length; ++C) {
-      const cell_address = XLSX.utils.encode_cell({ r: R, c: C });
-      const cell_value = data[R][C];
-      if (!ws[cell_address]) continue;
-
-      // Dodaj bordere
-      ws[cell_address].s = {
-        border: {
-          top: { style: "thin", color: { auto: 1 } },
-          bottom: { style: "thin", color: { auto: 1 } },
-          left: { style: "thin", color: { auto: 1 } },
-          right: { style: "thin", color: { auto: 1 } },
-        },
-      };
-
-      // Izračunaj širinu teksta za kolonu (minimum 10)
-      const length = cell_value ? cell_value.toString().length : 10;
-      colWidths[C] = Math.max(colWidths[C] || 10, length + 2);
-    }
-  }
-
-  // Postavi širine kolona u sheet
-  ws['!cols'] = colWidths.map(w => ({ wch: w }));
-}
-
-// Eksport poslednjeg izveštaja u Excel sa formatiranjem
-function eksportujPoslednji() {
-  if (!podaci.length) {
-    alert("Nema sačuvanih izveštaja za eksport.");
-    return;
-  }
-
-  const poslednji = podaci[podaci.length - 1];
-  const podaciZaSheet = [
-    ["Datum", poslednji.date],
-    ["Smena", poslednji.shift],
-    ["Radnik", poslednji.worker],
-    [],
-    ["Aparat", "Ulaz", "Izlaz", "Stanje"],
-    ...poslednji.entries.map((e) => [e.machine, e.entry, e.exit, e.total]),
-    [],
-    ["Prethodno stanje", poslednji.previous],
-    ["Novo stanje", poslednji.current],
-    ["Ukupno", poslednji.total],
-  ];
-
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet(podaciZaSheet);
-
-  formatirajSheet(ws, podaciZaSheet);
-
-  XLSX.utils.book_append_sheet(wb, ws, "Izveštaj");
-  XLSX.writeFile(wb, `izvestaj_${poslednji.date}.xlsx`);
-}
-
-// Eksport cele istorije u Excel sa formatiranjem
-function eksportujSve() {
-  if (!podaci.length) {
-    alert("Nema sačuvanih izveštaja za eksport.");
-    return;
-  }
-
-  const podaciZaSheet = [];
-  podaci.forEach((report) => {
-    podaciZaSheet.push(["Datum", report.date]);
-    podaciZaSheet.push(["Smena", report.shift]);
-    podaciZaSheet.push(["Radnik", report.worker]);
-    podaciZaSheet.push([]);
-    podaciZaSheet.push(["Aparat", "Ulaz", "Izlaz", "Stanje"]);
-    report.entries.forEach((e) => {
-      podaciZaSheet.push([e.machine, e.entry, e.exit, e.total]);
-    });
-    podaciZaSheet.push([]);
-    podaciZaSheet.push(["Prethodno stanje", report.previous]);
-    podaciZaSheet.push(["Novo stanje", report.current]);
-    podaciZaSheet.push(["Ukupno", report.total]);
-    podaciZaSheet.push([]);
-  });
-
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet(podaciZaSheet);
-
-  formatirajSheet(ws, podaciZaSheet);
-
-  XLSX.utils.book_append_sheet(wb, ws, "Svi izveštaji");
-  XLSX.writeFile(
-    wb,
-    `izvestaji_${new Date().toISOString().split("T")[0]}.xlsx`
-  );
-}
-
-function resetujMesecnoStanje() {
-  const danas = new Date();
-  if (danas.getDate() === 1) {
-    localStorage.setItem("mesecnoStanje", "0");
-  }
-}
-
 function ocistiMemoriju() {
-  if (confirm("Da li ste sigurni da želite da očistite memoriju? Ova akcija će obrisati sve sačuvane izveštaje.")) {
-    localStorage.removeItem("dailyReports");
-    podaci = [];
-    ucitajTabelu();
-    prikaziStanja();
+  if (
+    confirm(
+      "Da li ste sigurni da želite da očistite memoriju? Ova akcija će obrisati sve sačuvane podatke."
+    )
+  ) {
+    localStorage.removeItem("podaci");
+    localStorage.removeItem("mesecnoStanje");
+    novoStanjeSpan.textContent = formatBroj(0);
+    ukupnoSpan.textContent = formatBroj(0);
+    mesecnoStanjeSpan.textContent = formatBroj(0);
+    prethodnoStanjeInput.value = 0;
+    radnikInput.value = "";
+    lokalInput.value = "";
+    smenaInput.value = "";
+    // Datum se uvek postavlja na današnji, pa ga ne brišemo
+
+    // Očisti polja aparata
+    aparati.forEach(({ id }) => {
+      const ulaz = document.getElementById(`${id}_ulaz`);
+      const izlaz = document.getElementById(`${id}_izlaz`);
+      const stanje = document.getElementById(`${id}_stanje`);
+      if (ulaz) ulaz.value = "";
+      if (izlaz) izlaz.value = "";
+      if (stanje) stanje.value = "";
+    });
+
     alert("Memorija je očišćena.");
   }
 }
+
+document
+  .getElementById("izracunajBtn")
+  .addEventListener("click", izracunajStanje);
+resetujBtn.addEventListener("click", ocistiMemoriju);
+
+window.addEventListener("load", () => {
+  napraviRedoveAparata();
+  ucitajPodatke(); // prvo učitaj sve sa localStorage
+  resetujPrethodnoStanjeAkoJePonedeljak(); // onda resetuj ako treba (sada samo ako nema vrednosti)
+
+  // Postavi datum ako je polje prazno
+  if (!datumInput.value) {
+    const danas = new Date();
+    const yyyy = danas.getFullYear();
+    const mm = String(danas.getMonth() + 1).padStart(2, "0");
+    const dd = String(danas.getDate()).padStart(2, "0");
+    datumInput.value = `${yyyy}-${mm}-${dd}`;
+  }
+});
