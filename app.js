@@ -49,7 +49,7 @@ function sacuvajPodatke() {
 
 function ucitajPodatke() {
   const podaci = JSON.parse(localStorage.getItem("podaci")) || {};
-  //radnikInput.value = podaci.radnik || "";
+  //radnikInput.value = podaci.radnik || ""; //ne pamtimo radnika
   lokalInput.value = podaci.lokal || "";
 
   prethodnoStanjeInput.value = podaci.prethodnoStanje !== undefined ? podaci.prethodnoStanje : "";
@@ -138,9 +138,7 @@ function napraviRedoveAparata() {
     ulazInput.type = "number";
     ulazInput.className = "form-control";
     ulazInput.id = `${id}_ulaz`;
-    ulazInput.placeholder = imaUlazIzlaz
-      ? `Unesite ulaz za ${id.toUpperCase()}`
-      : `Ulaz ${id.toUpperCase()}`;
+    ulazInput.placeholder = imaUlazIzlaz ? `Unesite ulaz za ${id.toUpperCase()}` : `Ulaz ${id.toUpperCase()}`;
     ulazInput.title = `Ulaz za ${id.toUpperCase()}`;
     ulazInput.setAttribute("aria-label", `Ulaz za ${id.toUpperCase()}`);
     if (!imaUlazIzlaz) ulazInput.disabled = true;
@@ -152,9 +150,7 @@ function napraviRedoveAparata() {
     izlazInput.type = "number";
     izlazInput.className = "form-control";
     izlazInput.id = `${id}_izlaz`;
-    izlazInput.placeholder = imaUlazIzlaz
-      ? `Unesite izlaz za ${id.toUpperCase()}`
-      : `Izlaz ${id.toUpperCase()}`;
+    izlazInput.placeholder = imaUlazIzlaz ? `Unesite izlaz za ${id.toUpperCase()}` : `Izlaz ${id.toUpperCase()}`;
     izlazInput.title = `Izlaz za ${id.toUpperCase()}`;
     izlazInput.setAttribute("aria-label", `Izlaz za ${id.toUpperCase()}`);
     if (!imaUlazIzlaz) izlazInput.disabled = true;
@@ -166,9 +162,7 @@ function napraviRedoveAparata() {
     stanjeInput.type = "number";
     stanjeInput.className = "form-control";
     stanjeInput.id = `${id}_stanje`;
-    stanjeInput.placeholder = imaUlazIzlaz
-      ? `Stanje ${id.toUpperCase()}`
-      : `Unesite stanje za ${id.toUpperCase()}`;
+    stanjeInput.placeholder = imaUlazIzlaz ? `Stanje ${id.toUpperCase()}` : `Unesite stanje za ${id.toUpperCase()}`;
     stanjeInput.title = `Stanje ${id.toUpperCase()}`;
     stanjeInput.setAttribute("aria-label", `Stanje ${id.toUpperCase()}`);
     if (imaUlazIzlaz) stanjeInput.disabled = true;
@@ -197,16 +191,22 @@ function stampaj() {
   const novo = novoStanjeSpan.textContent.trim() || "-";
   const ukupno = ukupnoSpan.textContent.trim() || "-";
   const mesecno = mesecnoStanjeSpan.textContent.trim() || "-";
-
-  document.getElementById("printDatum").textContent = new Date().toLocaleDateString("sr-RS");
-  document.getElementById("datumPrint").textContent = datum;
+  
   document.getElementById("radnikPrint").textContent = radnik;
   document.getElementById("lokalPrint").textContent = lokal;
   document.getElementById("smenaPrint").textContent = smena;
   document.getElementById("prethodnoStanjePrint").textContent = formatBroj(prethodno);
   document.getElementById("novoStanjePrint").textContent = novo;
   document.getElementById("ukupnoPrint").textContent = formatBroj(ukupno);
-  document.getElementById("mesecnoStanjePrint").textContent = formatBroj(mesecno);
+  //document.getElementById("mesecnoStanjePrint").textContent = formatBroj(mesecno); // ne štampamo mesečno stanje
+  //document.getElementById("printDatum").textContent = new Date().toLocaleDateString("sr-RS"); // ne štampamo datum štampe, samo datum unosa
+  //document.getElementById("datumPrint").textContent = datum.toLocaleString("sr-RS"); // ne konvertuje u lokalni format
+  try {
+    const datumObj = new Date(datum);
+    document.getElementById("datumPrint").textContent = datumObj.toLocaleDateString("sr-RS");
+   } catch {
+     document.getElementById("datumPrint").textContent = datum;
+   }
 
   const tbody = document.getElementById("printTabela");
   tbody.innerHTML = "";
@@ -214,7 +214,7 @@ function stampaj() {
     const ulaz = formatBroj(document.getElementById(id + "_ulaz")?.value);
     const izlaz = formatBroj(document.getElementById(id + "_izlaz")?.value);
     const stanje = formatBroj(document.getElementById(id + "_stanje")?.value);
-
+    
     const tr = document.createElement("tr");
     tr.innerHTML = `<td>${id.toUpperCase()}</td><td>${ulaz}</td><td>${izlaz}</td><td>${stanje}</td>`;
     tbody.appendChild(tr);
