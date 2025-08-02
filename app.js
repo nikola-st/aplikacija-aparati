@@ -17,9 +17,25 @@ const smenaInput = document.getElementById("smena");
 const resetujBtn = document.getElementById("resetujBtn");
 const aparatiTabela = document.getElementById("aparatiTabela");
 
-
 function formatBroj(vrednost) {
-  return Number(vrednost || 0).toLocaleString("sr-RS");
+  if (typeof vrednost === "number") {
+    // Ako je već broj, samo ga formatiraj
+    return vrednost.toLocaleString("sr-RS", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  } else if (typeof vrednost === "string") {
+    // Ako je string, pokušaj da ga pretvoriš u broj
+    const num = Number(vrednost.replace(/\./g, "").replace(",", "."));
+    return isNaN(num)
+      ? "-"
+      : num.toLocaleString("sr-RS", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+  } else {
+    return "-";
+  }
 }
 
 function sacuvajPodatke() {
@@ -32,7 +48,7 @@ function sacuvajPodatke() {
     aparati: {},
     mesecnoStanje: Number(localStorage.getItem("mesecnoStanje")) || 0,
   };
-
+  
   aparati.forEach(({ id }) => {
     const ulaz = document.getElementById(`${id}_ulaz`);
     const izlaz = document.getElementById(`${id}_izlaz`);
@@ -124,14 +140,14 @@ function napraviRedoveAparata() {
 
   aparati.forEach(({ id, imaUlazIzlaz }) => {
     const tr = document.createElement("tr");
-
+    
     // prvi td sa labelom
     const tdNaziv = document.createElement("td");
     const label = document.createElement("label");
     label.htmlFor = imaUlazIzlaz ? `${id}_ulaz` : `${id}_stanje`;
     label.textContent = id.toUpperCase();
     tdNaziv.appendChild(label);
-
+    
     // td za ulaz
     const tdUlaz = document.createElement("td");
     const ulazInput = document.createElement("input");
@@ -143,7 +159,7 @@ function napraviRedoveAparata() {
     ulazInput.setAttribute("aria-label", `Ulaz za ${id.toUpperCase()}`);
     if (!imaUlazIzlaz) ulazInput.disabled = true;
     tdUlaz.appendChild(ulazInput);
-
+    
     // td za izlaz
     const tdIzlaz = document.createElement("td");
     const izlazInput = document.createElement("input");
@@ -167,7 +183,7 @@ function napraviRedoveAparata() {
     stanjeInput.setAttribute("aria-label", `Stanje ${id.toUpperCase()}`);
     if (imaUlazIzlaz) stanjeInput.disabled = true;
     tdStanje.appendChild(stanjeInput);
-
+    
     tr.appendChild(tdNaziv);
     tr.appendChild(tdUlaz);
     tr.appendChild(tdIzlaz);
@@ -178,11 +194,6 @@ function napraviRedoveAparata() {
 }
 
 function stampaj() {
-  function formatBroj(vrednost) {
-    const num = Number(vrednost);
-    return isNaN(num) ? "-" : num.toLocaleString("sr-RS");
-  }
-
   const datum = datumInput.value || "-";
   const radnik = radnikInput.value || "-";
   const lokal = lokalInput.value || "-";
@@ -190,31 +201,37 @@ function stampaj() {
   const prethodno = prethodnoStanjeInput.value || "-";
   const novo = novoStanjeSpan.textContent.trim() || "-";
   const ukupno = ukupnoSpan.textContent.trim() || "-";
-  const mesecno = mesecnoStanjeSpan.textContent.trim() || "-";
-  
+
   document.getElementById("radnikPrint").textContent = radnik;
   document.getElementById("lokalPrint").textContent = lokal;
   document.getElementById("smenaPrint").textContent = smena;
   document.getElementById("prethodnoStanjePrint").textContent = formatBroj(prethodno);
-  document.getElementById("novoStanjePrint").textContent = novo;
+  document.getElementById("novoStanjePrint").textContent = formatBroj(novo);
   document.getElementById("ukupnoPrint").textContent = formatBroj(ukupno);
   //document.getElementById("mesecnoStanjePrint").textContent = formatBroj(mesecno); // ne štampamo mesečno stanje
   //document.getElementById("printDatum").textContent = new Date().toLocaleDateString("sr-RS"); // ne štampamo datum štampe, samo datum unosa
-  //document.getElementById("datumPrint").textContent = datum.toLocaleString("sr-RS"); // ne konvertuje u lokalni format
+  //document.getElementById("datumPrint").textContent = datum.toLocaleString("sr-RS"); // nece da konvertuje u lokalni format
+
   try {
     const datumObj = new Date(datum);
     document.getElementById("datumPrint").textContent = datumObj.toLocaleDateString("sr-RS");
-   } catch {
-     document.getElementById("datumPrint").textContent = datum;
-   }
+  } catch {
+    document.getElementById("datumPrint").textContent = datum;
+  }
 
   const tbody = document.getElementById("printTabela");
   tbody.innerHTML = "";
   aparati.forEach(({ id }) => {
-    const ulaz = formatBroj(document.getElementById(id + "_ulaz")?.value);
-    const izlaz = formatBroj(document.getElementById(id + "_izlaz")?.value);
-    const stanje = formatBroj(document.getElementById(id + "_stanje")?.value);
-    
+    const ulaz = formatBroj(
+      document.getElementById(id + "_ulaz")?.value || "0"
+    );
+    const izlaz = formatBroj(
+      document.getElementById(id + "_izlaz")?.value || "0"
+    );
+    const stanje = formatBroj(
+      document.getElementById(id + "_stanje")?.value || "0"
+    );
+
     const tr = document.createElement("tr");
     tr.innerHTML = `<td>${id.toUpperCase()}</td><td>${ulaz}</td><td>${izlaz}</td><td>${stanje}</td>`;
     tbody.appendChild(tr);
@@ -224,34 +241,31 @@ function stampaj() {
 }
 
 function ocistiMemoriju() {
-  if (
-    confirm(
-      "Da li ste sigurni da želite da očistite memoriju? Ova akcija će obrisati sve sačuvane podatke."
-    )
-  ) {
-    localStorage.removeItem("podaci");
-    localStorage.removeItem("mesecnoStanje");
-    novoStanjeSpan.textContent = formatBroj(0);
-    ukupnoSpan.textContent = formatBroj(0);
-    mesecnoStanjeSpan.textContent = formatBroj(0);
-    prethodnoStanjeInput.value = 0;
-    radnikInput.value = "";
-    lokalInput.value = "";
-    smenaInput.value = "";
-    // Datum se uvek postavlja na današnji, pa ga ne brišemo
-
-    // Očisti polja aparata
-    aparati.forEach(({ id }) => {
-      const ulaz = document.getElementById(`${id}_ulaz`);
-      const izlaz = document.getElementById(`${id}_izlaz`);
-      const stanje = document.getElementById(`${id}_stanje`);
-      if (ulaz) ulaz.value = "";
-      if (izlaz) izlaz.value = "";
-      if (stanje) stanje.value = "";
-    });
-
-    alert("Memorija je očišćena.");
-  }
+  if (confirm ( "Da li ste sigurni da želite da očistite memoriju? Ova akcija će obrisati sve sačuvane podatke.")) 
+    {
+      localStorage.removeItem("podaci");
+      localStorage.removeItem("mesecnoStanje");
+      novoStanjeSpan.textContent = formatBroj(0);
+      ukupnoSpan.textContent = formatBroj(0);
+      mesecnoStanjeSpan.textContent = formatBroj(0);
+      prethodnoStanjeInput.value = 0;
+      radnikInput.value = "";
+      lokalInput.value = "";
+      smenaInput.value = "";
+      // Datum se uvek postavlja na današnji, pa ga ne brišemo
+      
+      // Očisti polja aparata
+      aparati.forEach(({ id }) => {
+        const ulaz = document.getElementById(`${id}_ulaz`);
+        const izlaz = document.getElementById(`${id}_izlaz`);
+        const stanje = document.getElementById(`${id}_stanje`);
+        if (ulaz) ulaz.value = "";
+        if (izlaz) izlaz.value = "";
+        if (stanje) stanje.value = "";
+      });
+      
+      alert("Memorija je očišćena.");
+    }
 }
 
 document
